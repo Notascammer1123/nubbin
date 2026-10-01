@@ -1,587 +1,739 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sticker Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik+One&family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    background: #0a0a0a;
-    color: #e8e8e8;
-    display: flex;
-    min-height: 100vh;
-    font-size: 13px;
-    letter-spacing: 0.02em;
-  }
-  aside {
-    width: 280px;
-    background: #111;
-    border-right: 1px solid #1f1f1f;
-    padding: 22px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    overflow-y: auto;
-  }
-  .brand {
-    font-family: Georgia, "Times New Roman", serif;
-    font-style: italic;
-    font-size: 22px;
-    letter-spacing: -0.02em;
-    color: #fff;
-  }
-  .brand span { color: #f0c14b; }
-  .group { display: flex; flex-direction: column; gap: 8px; }
-  .label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: #666;
-  }
-  button, label.file-btn {
-    font: inherit;
-    font-size: 12px;
-    background: #181818;
-    color: #ddd;
-    border: 1px solid #242424;
-    padding: 9px 12px;
-    border-radius: 2px;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
-  }
-  button:hover, label.file-btn:hover { background: #1f1f1f; border-color: #333; color: #fff; }
-  button.primary {
-    background: #f0c14b;
-    border-color: #f0c14b;
-    color: #111;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    text-align: center;
-    font-size: 11px;
-  }
-  button.primary:hover { background: #ffd666; border-color: #ffd666; }
-  button.ghost { text-align: center; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #888; }
-  button.ghost:hover { color: #fff; }
-  input[type="color"] {
-    width: 100%; height: 38px;
-    border: 1px solid #242424; border-radius: 2px;
-    background: #181818; cursor: pointer; padding: 2px;
-  }
-  input[type="text"], input[type="email"] {
-    width: 100%; padding: 9px 12px;
-    border-radius: 2px;
-    background: #181818; color: #ddd;
-    border: 1px solid #242424;
-    font: inherit; font-size: 12px;
-  }
-  input:focus { outline: none; border-color: #f0c14b; }
-  .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .templates button {
-    padding: 6px; aspect-ratio: 1;
-    display: flex; align-items: center; justify-content: center;
-    background: #181818;
-  }
-  .templates svg { width: 100%; height: 100%; }
-  hr { border: none; border-top: 1px solid #1a1a1a; margin: 0; }
-  main {
-    flex: 1;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 40px; gap: 20px;
-    background:
-      radial-gradient(circle at 50% 30%, #141414 0%, #0a0a0a 70%);
-  }
-  .canvas-wrap {
-    padding: 12px;
-    background: #0d0d0d;
-    border: 1px solid #1f1f1f;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  }
-  canvas { display: block; cursor: grab; background: #fff; }
-  canvas:active { cursor: grabbing; }
-  .hint {
-    font-size: 11px;
-    color: #555;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-align: center;
-  }
-  .hint b { color: #888; font-weight: 600; }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #0a0a0a; }
-  ::-webkit-scrollbar-thumb { background: #222; }
+* { box-sizing:border-box; margin:0; padding:0; }
+html,body { width:100%; height:100%; background:#1c1c1c; font-family:'Rubik',sans-serif; overflow:hidden; }
+
+#app { display:flex; flex-direction:column; width:100vw; height:100vh; }
+
+#canvas-area {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  overflow:hidden; background:#141414; position:relative;
+}
+#stage {
+  position:relative; overflow:hidden;
+  background:#fef3c7;
+}
+#stage-bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; user-select:none; display:none; }
+
+.layer {
+  position:absolute;
+  user-select:none;
+  touch-action:none;
+  cursor:move;
+}
+.layer img {
+  display:block; width:100%; height:auto;
+  pointer-events:none; user-select:none; -webkit-user-drag:none;
+}
+
+.layer .sel-box {
+  display:none;
+  position:absolute;
+  inset:-8px;
+  border:2px dashed rgba(0,200,255,0.9);
+  border-radius:2px;
+  pointer-events:none;
+}
+.layer.selected .sel-box { display:block; }
+
+.layer .handle {
+  display:none;
+  position:absolute;
+  width:14px; height:14px;
+  background:#fff;
+  border:2px solid #1a7fe8;
+  border-radius:2px;
+  z-index:10;
+}
+.layer.selected .handle { display:block; }
+
+.handle.nw { top:-7px;  left:-7px;  cursor:nw-resize; }
+.handle.ne { top:-7px;  right:-7px; cursor:ne-resize; }
+.handle.sw { bottom:-7px; left:-7px;  cursor:sw-resize; }
+.handle.se { bottom:-7px; right:-7px; cursor:se-resize; }
+
+.handle.n  { top:-7px;    left:50%; transform:translateX(-50%); cursor:n-resize; }
+.handle.s  { bottom:-7px; left:50%; transform:translateX(-50%); cursor:s-resize; }
+.handle.w  { left:-7px;   top:50%;  transform:translateY(-50%); cursor:w-resize; }
+.handle.e  { right:-7px;  top:50%;  transform:translateY(-50%); cursor:e-resize; }
+
+.handle.rot {
+  width:16px; height:16px;
+  border-radius:50%;
+  background:#1a7fe8;
+  border:2px solid #fff;
+  top:-34px; left:50%; transform:translateX(-50%);
+  cursor:grab;
+}
+.rot-line {
+  display:none;
+  position:absolute;
+  width:2px; height:20px;
+  background:rgba(0,200,255,0.7);
+  top:-20px; left:50%; transform:translateX(-50%);
+  pointer-events:none;
+}
+.layer.selected .rot-line { display:block; }
+
+#bottom-bar { flex-shrink:0; background:#111; border-top:2px solid #2a2a2a; }
+
+#strip {
+  display:flex; align-items:center; padding:0 14px;
+  height:74px; gap:14px; overflow-x:auto; scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+#strip::-webkit-scrollbar { display:none; }
+
+#elem-btn {
+  flex-shrink:0; background:#2a2a2a; border:none; border-radius:6px;
+  color:#fff; font-family:'Rubik One',sans-serif; font-size:11px;
+  letter-spacing:2px; padding:9px 14px; cursor:pointer;
+  text-transform:uppercase; display:flex; flex-direction:column;
+  align-items:center; gap:3px; min-width:78px; transition:background .15s;
+}
+#elem-btn .caret { font-size:8px; transition:transform .2s; }
+#elem-btn.open .caret { transform:rotate(180deg); }
+#elem-btn:hover { background:#383838; }
+
+.sdiv { width:1px; height:50px; background:#2a2a2a; flex-shrink:0; }
+.sg { display:flex; align-items:center; gap:9px; flex-shrink:0; }
+.sl { font-family:'Rubik One',sans-serif; font-size:11px; letter-spacing:2px; color:#fff; text-transform:uppercase; white-space:nowrap; }
+
+.sface { height:58px; width:auto; cursor:pointer; transition:transform .12s; object-fit:contain; }
+.sface:hover { transform:scale(1.1); }
+
+.sbg { height:44px; width:76px; object-fit:cover; border-radius:5px; border:2px solid #444; cursor:pointer; transition:border-color .15s; display:block; }
+.sbg.active { border-color:#00c8ff; }
+.sbg:hover { border-color:#00c8ff; }
+
+.sup {
+  height:44px; width:80px; border:2px dashed #555; border-radius:5px;
+  background:#1e1e1e; cursor:pointer; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; color:#888;
+  font-size:9px; font-family:'Rubik One',sans-serif; letter-spacing:1px;
+  text-transform:uppercase; gap:2px; transition:border-color .15s,color .15s; flex-shrink:0;
+}
+.sup:hover { border-color:#00c8ff; color:#00c8ff; }
+.sup .ico { font-size:16px; }
+
+.bgswatch {
+  width:76px; height:44px; border-radius:5px; border:2px solid #444;
+  cursor:pointer; transition:border-color .15s; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Rubik One',sans-serif; font-size:9px; letter-spacing:1px;
+  color:rgba(0,0,0,0.6);
+}
+.bgswatch.active { border-color:#00c8ff; }
+.bgswatch:hover { border-color:#00c8ff; }
+
+#dl-btn {
+  flex-shrink:0; margin-left:auto;
+  background:linear-gradient(135deg,#00c8ff,#0075e4);
+  border:none; border-radius:8px; color:#fff;
+  font-family:'Rubik One',sans-serif; font-size:11px;
+  letter-spacing:1px; padding:11px 20px; cursor:pointer;
+  text-transform:uppercase; white-space:nowrap;
+  box-shadow:0 4px 14px rgba(0,150,255,.35);
+  transition:opacity .15s, transform .1s;
+}
+#dl-btn:hover { opacity:.9; }
+#dl-btn:active { transform:scale(.96); }
+
+#send-btn {
+  flex-shrink:0;
+  background:linear-gradient(135deg,#f0c14b,#d29b1f);
+  border:none; border-radius:8px; color:#111;
+  font-family:'Rubik One',sans-serif; font-size:11px;
+  letter-spacing:1px; padding:11px 20px; cursor:pointer;
+  text-transform:uppercase; white-space:nowrap;
+  box-shadow:0 4px 14px rgba(240,193,75,.3);
+  transition:opacity .15s, transform .1s;
+}
+#send-btn:hover { opacity:.9; }
+#send-btn:active { transform:scale(.96); }
+
+#drawer { display:none; padding:10px 14px 14px; background:#161616; border-top:1px solid #2a2a2a; overflow-x:auto; scrollbar-width:none; }
+#drawer::-webkit-scrollbar { display:none; }
+#drawer.open { display:flex; gap:20px; align-items:flex-start; }
+
+.dc { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+.dcl { font-family:'Rubik One',sans-serif; font-size:9px; letter-spacing:2px; color:#666; text-transform:uppercase; }
+.df { display:flex; gap:8px; }
+.dface { height:64px; width:auto; cursor:pointer; transition:transform .12s; object-fit:contain; flex-shrink:0; }
+.dface:hover { transform:scale(1.1); }
+.dbgs { display:flex; gap:8px; align-items:center; }
+.dbg { width:80px; height:45px; object-fit:cover; border-radius:5px; border:2px solid #444; cursor:pointer; transition:border-color .15s; display:block; }
+.dbg.active { border-color:#00c8ff; }
+.dbg:hover { border-color:#00c8ff; }
+.dup { width:80px; height:45px; border:2px dashed #555; border-radius:5px; background:#1e1e1e; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#777; font-size:9px; font-family:'Rubik One',sans-serif; letter-spacing:1px; text-transform:uppercase; gap:2px; transition:border-color .15s,color .15s; }
+.dup:hover { border-color:#00c8ff; color:#00c8ff; }
+.dup .ico { font-size:16px; }
+.clr-btn { background:#2a2a2a; border:1px solid #444; border-radius:6px; color:#aaa; font-family:'Rubik One',sans-serif; font-size:9px; letter-spacing:1px; padding:7px 12px; cursor:pointer; text-transform:uppercase; transition:border-color .15s,color .15s; white-space:nowrap; }
+.clr-btn:hover { border-color:#e33; color:#e33; }
+
+.bgpicker {
+  width:80px; height:45px; border:2px solid #444; border-radius:5px;
+  cursor:pointer; padding:2px; background:#1e1e1e;
+}
+
+#modal-bg {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.75);
+  z-index:1000; align-items:center; justify-content:center;
+}
+#modal-bg.open { display:flex; }
+#modal {
+  background:#1a1a1a; border:1px solid #333; border-radius:10px;
+  padding:24px; width:380px; max-width:90vw;
+  display:flex; flex-direction:column; gap:12px;
+  font-family:'Rubik',sans-serif; color:#ddd;
+}
+#modal h3 { font-family:'Rubik One',sans-serif; font-size:14px; letter-spacing:2px; text-transform:uppercase; color:#fff; }
+#modal input {
+  width:100%; padding:10px 12px; border-radius:6px;
+  background:#222; color:#ddd; border:1px solid #333;
+  font-family:inherit; font-size:13px;
+}
+#modal input:focus { outline:none; border-color:#00c8ff; }
+#modal .row { display:flex; gap:8px; }
+#modal button {
+  flex:1; padding:10px; border-radius:6px; border:none;
+  font-family:'Rubik One',sans-serif; font-size:11px;
+  letter-spacing:1.5px; text-transform:uppercase; cursor:pointer;
+}
+#modal .ok { background:linear-gradient(135deg,#00c8ff,#0075e4); color:#fff; }
+#modal .cancel { background:#2a2a2a; color:#aaa; }
+#modal .note { font-size:11px; color:#666; line-height:1.5; }
 </style>
 </head>
 <body>
-
-<aside>
-  <div class="brand">Sticker<span>.</span>Maker</div>
-
-  <div class="group">
-    <div class="label">Background</div>
-    <input type="color" id="bgColor" value="#fef3c7" />
+<div id="app">
+  <div id="canvas-area">
+    <div id="stage">
+      <img id="stage-bg" src="" alt="">
+    </div>
   </div>
 
-  <div class="group">
-    <div class="label">Add</div>
-    <label class="file-btn" for="upload">Upload image</label>
-    <input id="upload" type="file" accept="image/*" hidden />
-    <div class="templates" id="templates"></div>
+  <div id="bottom-bar">
+    <div id="strip">
+      <button id="elem-btn">ELEMENTS<span class="caret">▼</span></button>
+      <div class="sdiv"></div>
+      <div class="sg">
+        <span class="sl">Stickers:</span>
+        <img class="sface" src="jack.png"  data-src="jack.png"  onerror="this.src=ph('S1')">
+        <img class="sface" src="jack2.png" data-src="jack2.png" onerror="this.src=ph('S2')">
+        <img class="sface" src="jack3.png" data-src="jack3.png" onerror="this.src=ph('S3')">
+      </div>
+      <div class="sdiv"></div>
+      <div class="sg">
+        <span class="sl">Background:</span>
+        <div class="bgswatch active" data-bg="#fef3c7" style="background:#fef3c7"></div>
+        <div class="bgswatch" data-bg="#bae6fd" style="background:#bae6fd"></div>
+        <div class="bgswatch" data-bg="#fbcfe8" style="background:#fbcfe8"></div>
+      </div>
+      <div class="sdiv"></div>
+      <div class="sg">
+        <span class="sl">Add</span>
+        <label class="sup" for="ef1"><span class="ico">📁</span><span>Upload</span></label>
+        <input type="file" id="ef1" accept="image/*" style="display:none">
+      </div>
+      <button id="send-btn">✉ Send to be made</button>
+      <button id="dl-btn">⬇ Export</button>
+    </div>
+
+    <div id="drawer">
+      <div class="dc">
+        <div class="dcl">All Stickers</div>
+        <div class="df">
+          <img class="dface" src="jack.png"  data-src="jack.png"  onerror="this.src=ph('S1')">
+          <img class="dface" src="jack2.png" data-src="jack2.png" onerror="this.src=ph('S2')">
+          <img class="dface" src="jack3.png" data-src="jack3.png" onerror="this.src=ph('S3')">
+          <img class="dface" src="jack4.png" data-src="jack4.png" onerror="this.src=ph('S4')">
+          <img class="dface" src="jack5.png" data-src="jack5.png" onerror="this.src=ph('S5')">
+          <img class="dface" src="jack6.png" data-src="jack6.png" onerror="this.src=ph('S6')">
+        </div>
+      </div>
+      <div class="sdiv" style="height:60px"></div>
+      <div class="dc">
+        <div class="dcl">Backgrounds</div>
+        <div class="dbgs">
+          <div class="dbg active" data-bg="#fef3c7" style="background:#fef3c7"></div>
+          <div class="dbg" data-bg="#bae6fd" style="background:#bae6fd"></div>
+          <div class="dbg" data-bg="#fbcfe8" style="background:#fbcfe8"></div>
+          <div class="dbg" data-bg="#bbf7d0" style="background:#bbf7d0"></div>
+          <input type="color" class="bgpicker" id="bg-custom" value="#ffffff" title="Custom color">
+        </div>
+      </div>
+      <div class="sdiv" style="height:60px"></div>
+      <div class="dc">
+        <div class="dcl">Upload Sticker</div>
+        <label class="dup" for="ef2"><span class="ico">📁</span><span>Upload</span></label>
+        <input type="file" id="ef2" accept="image/*" style="display:none">
+      </div>
+      <div class="sdiv" style="height:60px"></div>
+      <div class="dc" style="justify-content:flex-end">
+        <button class="clr-btn" id="clr">✕ Clear All</button>
+      </div>
+    </div>
   </div>
+</div>
 
-  <hr />
-
-  <div class="group">
-    <button id="duplicateBtn" class="ghost">Duplicate</button>
-    <button id="deleteBtn" class="ghost">Delete</button>
-    <button id="clearBtn" class="ghost">Clear all</button>
+<div id="modal-bg">
+  <div id="modal">
+    <h3>Send design</h3>
+    <input type="email" id="m-email" placeholder="your@email (optional)">
+    <input type="text" id="m-notes" placeholder="notes — size, quantity, etc.">
+    <div class="note">Downloads <b>design.json</b> and <b>preview.png</b>, then opens your mail client so you can attach them.</div>
+    <div class="row">
+      <button class="cancel" id="m-cancel">Cancel</button>
+      <button class="ok" id="m-send">Send</button>
+    </div>
   </div>
+</div>
 
-  <hr />
-
-  <div class="group">
-    <div class="label">Export</div>
-    <button id="exportCombined">Combined</button>
-    <button id="exportWhite">Stickers on white</button>
-    <button id="exportBg">Background only</button>
-    <button id="exportAll" class="primary">Export all three</button>
-  </div>
-
-  <hr />
-
-  <div class="group">
-    <div class="label">Send to be created</div>
-    <input id="customerEmail" type="email" placeholder="your@email" />
-    <input id="notes" type="text" placeholder="notes" />
-    <button id="sendBtn" class="primary">Send design</button>
-  </div>
-</aside>
-
-<main>
-  <div class="canvas-wrap">
-    <canvas id="canvas" width="700" height="700"></canvas>
-  </div>
-  <div class="hint"><b>Drag</b> move · <b>Handles</b> resize · <b>Top circle</b> rotate</div>
-</main>
+<canvas id="xc" style="display:none"></canvas>
 
 <script>
-(() => {
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
+function ph(label){
+  return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" rx="12" fill="%23ddd" stroke="%23aaa" stroke-width="2"/><text x="50%25" y="52%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-family="sans-serif" font-size="14">${label}</text></svg>`;
+}
 
-  let stickers = [];
-  let selectedId = null;
-  let bgColor = document.getElementById("bgColor").value;
+let zt = 10;
+let selected = null;
+let currentBg = "#fef3c7";
 
-  let mode = null;
-  let dragStart = null;
+const stage = document.getElementById('stage');
+const stageBg = document.getElementById('stage-bg');
 
-  const HANDLE_RADIUS = 8;
-  const ROTATE_OFFSET = 36;
+function sizeStage(){
+  const a = document.getElementById('canvas-area');
+  const aw = a.clientWidth, ah = a.clientHeight;
+  let w = aw, h = aw * 9 / 16;
+  if (h > ah) { h = ah; w = ah * 16 / 9; }
+  stage.style.width = w + 'px';
+  stage.style.height = h + 'px';
+}
+sizeStage();
+window.addEventListener('resize', sizeStage);
 
-  const TEMPLATES = {
-    star: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 61,38 96,38 68,59 79,92 50,71 21,92 32,59 4,38 39,38" fill="#facc15" stroke="#a16207" stroke-width="3"/></svg>`,
-    heart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,88 C20,68 5,50 5,32 C5,18 16,8 28,8 C37,8 45,13 50,21 C55,13 63,8 72,8 C84,8 95,18 95,32 C95,50 80,68 50,88 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="3"/></svg>`,
-    cat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M25,20 L35,40 L65,40 L75,20 L85,45 C88,60 82,80 50,80 C18,80 12,60 15,45 Z" fill="#f59e0b" stroke="#78350f" stroke-width="3"/><circle cx="38" cy="55" r="4" fill="#111"/><circle cx="62" cy="55" r="4" fill="#111"/><path d="M45,68 Q50,73 55,68" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
-    smiley: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#fde047" stroke="#854d0e" stroke-width="3"/><circle cx="37" cy="42" r="5" fill="#111"/><circle cx="63" cy="42" r="5" fill="#111"/><path d="M32,62 Q50,80 68,62" stroke="#111" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`,
-    cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M25,70 C10,70 5,55 18,47 C18,30 40,25 50,38 C58,25 82,28 82,48 C95,50 95,70 80,70 Z" fill="#bae6fd" stroke="#0369a1" stroke-width="3"/></svg>`,
-    bolt: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="55,5 20,55 45,55 40,95 80,40 55,40" fill="#a855f7" stroke="#4c1d95" stroke-width="3"/></svg>`,
+stage.addEventListener('mousedown', e => {
+  if (e.target === stage || e.target === stageBg) deselect();
+});
+
+function deselect(){
+  if (selected) { selected.classList.remove('selected'); selected = null; }
+}
+
+function selectLayer(l){
+  if (selected && selected !== l) deselect();
+  selected = l;
+  l.classList.add('selected');
+  l.style.zIndex = ++zt;
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+    if (document.activeElement.tagName === 'INPUT') return;
+    selected.remove();
+    selected = null;
+  }
+});
+
+const ebtn = document.getElementById('elem-btn');
+const drw = document.getElementById('drawer');
+ebtn.addEventListener('click', () => {
+  const o = drw.classList.toggle('open');
+  ebtn.classList.toggle('open', o);
+});
+
+function setBg(color){
+  currentBg = color;
+  stage.style.background = color;
+  document.querySelectorAll('.sbg,.dbg,.bgswatch').forEach(e => {
+    e.classList.toggle('active', e.dataset.bg === color);
+  });
+}
+document.querySelectorAll('.sbg,.dbg,.bgswatch').forEach(e => {
+  e.addEventListener('click', () => setBg(e.dataset.bg));
+});
+document.getElementById('bg-custom').addEventListener('input', e => setBg(e.target.value));
+
+function addLayer(src){
+  const tw = stage.clientWidth, th = stage.clientHeight;
+  const iw = tw * 0.4;
+
+  const l = document.createElement('div');
+  l.className = 'layer';
+  l.dataset.rotation = '0';
+
+  l.style.left = (tw * 0.5 - iw * 0.5) + 'px';
+  l.style.top = (th * 0.5 - iw * 0.4) + 'px';
+  l.style.width = iw + 'px';
+  l.style.zIndex = ++zt;
+
+  const img = document.createElement('img');
+  img.src = src;
+  img.draggable = false;
+
+  const sb = document.createElement('div'); sb.className = 'sel-box';
+  const rl = document.createElement('div'); rl.className = 'rot-line';
+
+  const handles = ['nw','n','ne','e','se','s','sw','w','rot'];
+  const hdivs = {};
+  handles.forEach(h => {
+    const d = document.createElement('div');
+    d.className = 'handle ' + h;
+    hdivs[h] = d;
+    l.appendChild(d);
+  });
+
+  l.append(img, sb, rl);
+  stage.appendChild(l);
+
+  l.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    selectLayer(l);
+    startDrag(e, l);
+  });
+  l.addEventListener('touchstart', e => {
+    e.stopPropagation();
+    selectLayer(l);
+    startTouchDrag(e, l);
+  }, { passive: true });
+
+  ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
+    hdivs[dir].addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      startResize(e, l, dir);
+    });
+    hdivs[dir].addEventListener('touchstart', e => {
+      e.stopPropagation();
+      startTouchResize(e, l, dir);
+    }, { passive: true });
+  });
+
+  hdivs['rot'].addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    startRotate(e, l);
+  });
+  hdivs['rot'].addEventListener('touchstart', e => {
+    e.stopPropagation();
+    startTouchRotate(e, l);
+  }, { passive: true });
+
+  selectLayer(l);
+}
+
+document.querySelectorAll('.sface,.dface').forEach(e =>
+  e.addEventListener('click', () => addLayer(e.dataset.src)));
+
+function handleFile(file){
+  if (!file) return;
+  addLayer(URL.createObjectURL(file));
+}
+['ef1','ef2'].forEach(id => {
+  document.getElementById(id).addEventListener('change', e => {
+    handleFile(e.target.files[0]);
+    e.target.value = '';
+  });
+});
+
+document.getElementById('clr').addEventListener('click', () => {
+  stage.querySelectorAll('.layer').forEach(l => l.remove());
+  selected = null;
+});
+
+function startDrag(e, l){
+  if (e.target.classList.contains('handle')) return;
+  const ox = parseFloat(l.style.left) || 0, oy = parseFloat(l.style.top) || 0;
+  const sx = e.clientX, sy = e.clientY;
+  const mm = ev => { l.style.left = (ox + ev.clientX - sx) + 'px'; l.style.top = (oy + ev.clientY - sy) + 'px'; };
+  const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+  document.addEventListener('mousemove', mm);
+  document.addEventListener('mouseup', mu);
+}
+function startTouchDrag(e, l){
+  if (e.target.classList.contains('handle')) return;
+  const t = e.touches[0];
+  const ox = parseFloat(l.style.left) || 0, oy = parseFloat(l.style.top) || 0;
+  const sx = t.clientX, sy = t.clientY;
+  const tm = ev => { ev.preventDefault(); const tt = ev.touches[0]; l.style.left = (ox + tt.clientX - sx) + 'px'; l.style.top = (oy + tt.clientY - sy) + 'px'; };
+  const tu = () => { document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', tu); };
+  document.addEventListener('touchmove', tm, { passive: false });
+  document.addEventListener('touchend', tu);
+}
+
+function startResize(e, l, dir){
+  e.preventDefault();
+  const startX = e.clientX, startY = e.clientY;
+  const startW = l.offsetWidth, startH = l.offsetHeight;
+  const startLeft = parseFloat(l.style.left) || 0, startTop = parseFloat(l.style.top) || 0;
+  const ang = (parseFloat(l.dataset.rotation) || 0) * Math.PI / 180;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+
+  const mm = ev => {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const local_dx = dx * cos + dy * sin;
+    const local_dy = -dx * sin + dy * cos;
+    let w = startW, h = startH, dl = 0, dt = 0;
+    if (dir.includes('e')) w = Math.max(30, startW + local_dx);
+    if (dir.includes('s')) h = Math.max(30, startH + local_dy);
+    if (dir.includes('w')) { w = Math.max(30, startW - local_dx); dl = startW - w; }
+    if (dir.includes('n')) { h = Math.max(30, startH - local_dy); dt = startH - h; }
+    const ddl = dl * cos - dt * sin;
+    const ddt = dl * sin + dt * cos;
+    l.style.width = w + 'px';
+    l.style.left = (startLeft + ddl) + 'px';
+    l.style.top = (startTop + ddt) + 'px';
+  };
+  const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+  document.addEventListener('mousemove', mm);
+  document.addEventListener('mouseup', mu);
+}
+function startTouchResize(e, l, dir){
+  const t = e.touches[0];
+  const startX = t.clientX, startY = t.clientY;
+  const startW = l.offsetWidth;
+  const startLeft = parseFloat(l.style.left) || 0, startTop = parseFloat(l.style.top) || 0;
+  const ang = (parseFloat(l.dataset.rotation) || 0) * Math.PI / 180;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const tm = ev => {
+    ev.preventDefault();
+    const tt = ev.touches[0];
+    const dx = tt.clientX - startX, dy = tt.clientY - startY;
+    const local_dx = dx * cos + dy * sin;
+    let w = startW, dl = 0;
+    if (dir.includes('e')) w = Math.max(30, startW + local_dx);
+    if (dir.includes('w')) { w = Math.max(30, startW - local_dx); dl = startW - w; }
+    const ddl = dl * cos, ddt = dl * sin;
+    l.style.width = w + 'px';
+    l.style.left = (startLeft + ddl) + 'px';
+    l.style.top = (startTop + ddt) + 'px';
+  };
+  const tu = () => { document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', tu); };
+  document.addEventListener('touchmove', tm, { passive: false });
+  document.addEventListener('touchend', tu);
+}
+
+function getCenter(l){
+  const r = l.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+function applyRotation(l, deg){
+  l.dataset.rotation = deg;
+  l.querySelector('img').style.transform = `rotate(${deg}deg)`;
+}
+function startRotate(e, l){
+  e.preventDefault();
+  const c = getCenter(l);
+  const startAngle = Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180 / Math.PI;
+  const baseRot = parseFloat(l.dataset.rotation) || 0;
+  const mm = ev => {
+    const cc = getCenter(l);
+    const angle = Math.atan2(ev.clientY - cc.y, ev.clientX - cc.x) * 180 / Math.PI;
+    applyRotation(l, baseRot + angle - startAngle);
+  };
+  const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+  document.addEventListener('mousemove', mm);
+  document.addEventListener('mouseup', mu);
+}
+function startTouchRotate(e, l){
+  const t = e.touches[0];
+  const c = getCenter(l);
+  const startAngle = Math.atan2(t.clientY - c.y, t.clientX - c.x) * 180 / Math.PI;
+  const baseRot = parseFloat(l.dataset.rotation) || 0;
+  const tm = ev => {
+    ev.preventDefault();
+    const cc = getCenter(l);
+    const tt = ev.touches[0];
+    const angle = Math.atan2(tt.clientY - cc.y, tt.clientX - cc.x) * 180 / Math.PI;
+    applyRotation(l, baseRot + angle - startAngle);
+  };
+  const tu = () => { document.removeEventListener('touchmove', tm); document.removeEventListener('touchend', tu); };
+  document.addEventListener('touchmove', tm, { passive: false });
+  document.addEventListener('touchend', tu);
+}
+
+async function toSafeDataURL(src){
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  try {
+    const resp = await fetch(src);
+    const blob = await resp.blob();
+    return await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  } catch { return src; }
+}
+async function li(src){
+  const safe = await toSafeDataURL(src);
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = safe;
+  });
+}
+
+function renderDesign(w, h, opts = {}){
+  const { includeBg = true, includeStickers = true, forceWhiteBg = false } = opts;
+  const c = document.getElementById('xc');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+
+  if (includeBg) {
+    ctx.fillStyle = forceWhiteBg ? '#ffffff' : currentBg;
+    ctx.fillRect(0, 0, w, h);
+  }
+  return { canvas: c, ctx };
+}
+
+async function drawStickers(ctx, W, H){
+  const tw = stage.clientWidth, th = stage.clientHeight;
+  const layers = [...stage.querySelectorAll('.layer')];
+  layers.sort((a, b) => (+a.style.zIndex || 0) - (+b.style.zIndex || 0));
+  for (const layer of layers) {
+    const img = layer.querySelector('img');
+    if (!img?.src) continue;
+    const lx = (parseFloat(layer.style.left) || 0) / tw * W;
+    const ly = (parseFloat(layer.style.top) || 0) / th * H;
+    const lw = layer.offsetWidth / tw * W;
+    const lh = layer.offsetHeight / th * H;
+    const rot = (parseFloat(layer.dataset.rotation) || 0) * Math.PI / 180;
+    const cx = lx + lw / 2, cy = ly + lh / 2;
+    try {
+      const i = await li(img.src);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.drawImage(i, -lw / 2, -lh / 2, lw, lh);
+      ctx.restore();
+    } catch {}
+  }
+}
+
+function downloadCanvas(c, filename){
+  return new Promise(resolve => {
+    c.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 200);
+    }, 'image/png');
+  });
+}
+
+document.getElementById('dl-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('dl-btn');
+  btn.textContent = '⏳ Rendering...';
+  btn.disabled = true;
+  deselect();
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const W = 1280, H = 720;
+
+    let { canvas: c1, ctx: x1 } = renderDesign(W, H, { includeBg: true, includeStickers: true });
+    await drawStickers(x1, W, H);
+    await downloadCanvas(c1, 'design-combined.png');
+
+    await new Promise(r => setTimeout(r, 250));
+
+    let { canvas: c2, ctx: x2 } = renderDesign(W, H, { includeBg: true, includeStickers: true, forceWhiteBg: true });
+    await drawStickers(x2, W, H);
+    await downloadCanvas(c2, 'design-stickers-white.png');
+
+    await new Promise(r => setTimeout(r, 250));
+
+    let { canvas: c3, ctx: x3 } = renderDesign(W, H, { includeBg: true, includeStickers: false });
+    await downloadCanvas(c3, 'design-background.png');
+
+    btn.textContent = '⬇ Export';
+    btn.disabled = false;
+  } catch (err) {
+    alert('Export error: ' + err.message);
+    btn.textContent = '⬇ Export';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('send-btn').addEventListener('click', () => {
+  document.getElementById('modal-bg').classList.add('open');
+});
+document.getElementById('m-cancel').addEventListener('click', () => {
+  document.getElementById('modal-bg').classList.remove('open');
+});
+document.getElementById('m-send').addEventListener('click', async () => {
+  const email = document.getElementById('m-email').value.trim();
+  const notes = document.getElementById('m-notes').value.trim();
+  document.getElementById('modal-bg').classList.remove('open');
+
+  const W = 800, H = 450;
+  let { canvas: c, ctx } = renderDesign(W, H, { includeBg: true, includeStickers: true });
+  await drawStickers(ctx, W, H);
+  const previewDataUrl = c.toDataURL('image/png');
+
+  const tw = stage.clientWidth, th = stage.clientHeight;
+  const payload = {
+    submittedAt: new Date().toISOString(),
+    customerEmail: email || null,
+    notes: notes || null,
+    backgroundColor: currentBg,
+    canvas: { width: 1280, height: 720 },
+    stickers: [...stage.querySelectorAll('.layer')].map(l => {
+      const img = l.querySelector('img');
+      return {
+        x: parseFloat(l.style.left) || 0,
+        y: parseFloat(l.style.top) || 0,
+        w: l.offsetWidth,
+        h: l.offsetHeight,
+        relX: (parseFloat(l.style.left) || 0) / tw,
+        relY: (parseFloat(l.style.top) || 0) / th,
+        relW: l.offsetWidth / tw,
+        relH: l.offsetHeight / th,
+        rot: parseFloat(l.dataset.rotation) || 0,
+        src: img.src,
+      };
+    }),
   };
 
-  const templatesEl = document.getElementById("templates");
-  Object.entries(TEMPLATES).forEach(([name, svg]) => {
-    const btn = document.createElement("button");
-    btn.title = name;
-    btn.innerHTML = svg;
-    btn.addEventListener("click", () => addSvgTemplate(svg));
-    templatesEl.appendChild(btn);
-  });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const dl = document.createElement('a');
+  dl.href = URL.createObjectURL(blob);
+  dl.download = 'design.json';
+  dl.click();
 
-  const uid = () => Math.random().toString(36).slice(2, 10);
+  setTimeout(() => {
+    const dlp = document.createElement('a');
+    dlp.href = previewDataUrl;
+    dlp.download = 'design-preview.png';
+    dlp.click();
+  }, 300);
 
-  function addSvgTemplate(svg) {
-    const blob = new Blob([svg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const size = 150;
-      const s = {
-        id: uid(), img,
-        x: W / 2 - size / 2 + (Math.random() * 60 - 30),
-        y: H / 2 - size / 2 + (Math.random() * 60 - 30),
-        w: size, h: size, rot: 0,
-      };
-      stickers.push(s);
-      selectedId = s.id;
-      draw();
-    };
-    img.src = url;
-  }
+  const yourEmail = 'you@example.com';
+  const subject = encodeURIComponent('New sticker design');
+  const body = encodeURIComponent(
+    `Hi,\n\nI'd like to have this sticker design made.\n\n` +
+    `Background color: ${currentBg}\n` +
+    `Sticker count: ${payload.stickers.length}\n` +
+    `My email: ${email || '(not provided)'}\n` +
+    `Notes: ${notes || '(none)'}\n\n` +
+    `Attaching design-preview.png and design.json.\n\nThanks!`
+  );
+  window.location.href = `mailto:${yourEmail}?subject=${subject}&body=${body}`;
+});
 
-  function addImageFromFile(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 200;
-        let w = img.naturalWidth;
-        let h = img.naturalHeight;
-        const scale = Math.min(1, max / Math.max(w, h));
-        w *= scale; h *= scale;
-        const s = { id: uid(), img, x: W / 2 - w / 2, y: H / 2 - h / 2, w, h, rot: 0 };
-        stickers.push(s);
-        selectedId = s.id;
-        draw();
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function rotPoint(x, y, cx, cy, angle) {
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    const dx = x - cx, dy = y - cy;
-    return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
-  }
-
-  function getHandles(s) {
-    const cx = s.x + s.w / 2;
-    const cy = s.y + s.h / 2;
-    const corners = [
-      [s.x, s.y],
-      [s.x + s.w, s.y],
-      [s.x + s.w, s.y + s.h],
-      [s.x, s.y + s.h],
-    ];
-    const rotatedCorners = corners.map(([x, y]) => rotPoint(x, y, cx, cy, s.rot));
-    const rotateHandle = rotPoint(cx, cy - ROTATE_OFFSET - s.h / 2, cx, cy, s.rot);
-    return { rotatedCorners, rotateHandle };
-  }
-
-  function pointInSticker(s, px, py) {
-    const cx = s.x + s.w / 2;
-    const cy = s.y + s.h / 2;
-    const [lx, ly] = rotPoint(px, py, cx, cy, -s.rot);
-    return lx >= s.x && lx <= s.x + s.w && ly >= s.y && ly <= s.y + s.h;
-  }
-
-  function draw() {
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, W, H);
-
-    for (const s of stickers) {
-      ctx.save();
-      ctx.translate(s.x + s.w / 2, s.y + s.h / 2);
-      ctx.rotate(s.rot);
-      ctx.drawImage(s.img, -s.w / 2, -s.h / 2, s.w, s.h);
-      ctx.restore();
-    }
-
-    const sel = stickers.find((s) => s.id === selectedId);
-    if (sel) {
-      const { rotatedCorners, rotateHandle } = getHandles(sel);
-      ctx.save();
-      ctx.strokeStyle = "#f0c14b";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(...rotatedCorners[0]);
-      for (let i = 1; i < 4; i++) ctx.lineTo(...rotatedCorners[i]);
-      ctx.closePath();
-      ctx.stroke();
-
-      ctx.fillStyle = "#fff";
-      for (const [x, y] of rotatedCorners) {
-        ctx.beginPath();
-        ctx.arc(x, y, HANDLE_RADIUS, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
-
-      const cx = sel.x + sel.w / 2;
-      const cy = sel.y + sel.h / 2;
-      const topMid = rotPoint(cx, sel.y, cx, cy, sel.rot);
-      ctx.beginPath();
-      ctx.moveTo(...topMid);
-      ctx.lineTo(...rotateHandle);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(...rotateHandle, HANDLE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = "#f0c14b";
-      ctx.fill();
-      ctx.strokeStyle = "#111";
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  function getPointer(e) {
-    const r = canvas.getBoundingClientRect();
-    return {
-      x: ((e.clientX - r.left) / r.width) * canvas.width,
-      y: ((e.clientY - r.top) / r.height) * canvas.height,
-    };
-  }
-
-  function hitTest(px, py) {
-    for (let i = stickers.length - 1; i >= 0; i--) {
-      const s = stickers[i];
-      const { rotatedCorners, rotateHandle } = getHandles(s);
-      if (Math.hypot(px - rotateHandle[0], py - rotateHandle[1]) <= HANDLE_RADIUS + 4)
-        return { s, mode: "rotate" };
-      for (const [cx, cy] of rotatedCorners) {
-        if (Math.hypot(px - cx, py - cy) <= HANDLE_RADIUS + 4)
-          return { s, mode: "resize" };
-      }
-      if (pointInSticker(s, px, py)) return { s, mode: "move" };
-    }
-    return null;
-  }
-
-  canvas.addEventListener("pointerdown", (e) => {
-    canvas.setPointerCapture(e.pointerId);
-    const p = getPointer(e);
-    const hit = hitTest(p.x, p.y);
-
-    if (!hit) { selectedId = null; draw(); return; }
-
-    selectedId = hit.s.id;
-    mode = hit.mode;
-    const s = hit.s;
-    const cx = s.x + s.w / 2;
-    const cy = s.y + s.h / 2;
-
-    dragStart = {
-      pointer: p,
-      start: { ...s },
-      center: { x: cx, y: cy },
-      startAngle: Math.atan2(p.y - cy, p.x - cx),
-    };
-
-    stickers = stickers.filter((x) => x.id !== s.id);
-    stickers.push(s);
-    draw();
-  });
-
-  canvas.addEventListener("pointermove", (e) => {
-    if (!mode || !dragStart) return;
-    const p = getPointer(e);
-    const s = stickers.find((x) => x.id === selectedId);
-    if (!s) return;
-
-    if (mode === "move") {
-      s.x = dragStart.start.x + (p.x - dragStart.pointer.x);
-      s.y = dragStart.start.y + (p.y - dragStart.pointer.y);
-    } else if (mode === "resize") {
-      const cx = dragStart.center.x;
-      const cy = dragStart.center.y;
-      const [lx, ly] = rotPoint(p.x, p.y, cx, cy, -s.rot);
-      const origX = dragStart.start.x;
-      const origY = dragStart.start.y;
-      const origW = dragStart.start.w;
-      const origH = dragStart.start.h;
-
-      const corners = [
-        { x: origX, y: origY, dx: 0, dy: 0 },
-        { x: origX + origW, y: origY, dx: 1, dy: 0 },
-        { x: origX + origW, y: origY + origH, dx: 1, dy: 1 },
-        { x: origX, y: origY + origH, dx: 0, dy: 1 },
-      ];
-      let nearest = corners[0], best = Infinity;
-      for (const c of corners) {
-        const d = (c.x - lx) ** 2 + (c.y - ly) ** 2;
-        if (d < best) { best = d; nearest = c; }
-      }
-      const fixedX = nearest.dx === 0 ? origX + origW : origX;
-      const fixedY = nearest.dy === 0 ? origY + origH : origY;
-      let newW = Math.abs(lx - fixedX);
-      let newH = Math.abs(ly - fixedY);
-      const aspect = origW / origH;
-      if (newW / newH > aspect) newH = newW / aspect;
-      else newW = newH * aspect;
-      newW = Math.max(20, newW);
-      newH = Math.max(20, newH);
-      s.x = nearest.dx === 0 ? fixedX - newW : fixedX;
-      s.y = nearest.dy === 0 ? fixedY - newH : fixedY;
-      s.w = newW; s.h = newH;
-    } else if (mode === "rotate") {
-      const cx = dragStart.center.x;
-      const cy = dragStart.center.y;
-      const angle = Math.atan2(p.y - cy, p.x - cx);
-      s.rot = dragStart.start.rot + (angle - dragStart.startAngle);
-      s.x = cx - s.w / 2;
-      s.y = cy - s.h / 2;
-    }
-    draw();
-  });
-
-  canvas.addEventListener("pointerup", (e) => {
-    mode = null;
-    dragStart = null;
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if ((e.key === "Delete" || e.key === "Backspace") && document.activeElement === document.body) {
-      if (selectedId) {
-        stickers = stickers.filter((s) => s.id !== selectedId);
-        selectedId = null;
-        draw();
-        e.preventDefault();
-      }
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === "d") {
-      e.preventDefault();
-      duplicateSelected();
-    }
-  });
-
-  function duplicateSelected() {
-    const s = stickers.find((x) => x.id === selectedId);
-    if (!s) return;
-    const copy = { ...s, id: uid(), x: s.x + 20, y: s.y + 20 };
-    stickers.push(copy);
-    selectedId = copy.id;
-    draw();
-  }
-
-  function exportCanvas({ includeBg, includeStickers, forceWhiteBg, filename }) {
-    const off = document.createElement("canvas");
-    off.width = W; off.height = H;
-    const o = off.getContext("2d");
-
-    if (includeBg) {
-      o.fillStyle = forceWhiteBg ? "#ffffff" : bgColor;
-      o.fillRect(0, 0, W, H);
-    }
-    if (includeStickers) {
-      for (const s of stickers) {
-        o.save();
-        o.translate(s.x + s.w / 2, s.y + s.h / 2);
-        o.rotate(s.rot);
-        o.drawImage(s.img, -s.w / 2, -s.h / 2, s.w, s.h);
-        o.restore();
-      }
-    }
-    off.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, "image/png");
-  }
-
-  document.getElementById("exportCombined").addEventListener("click", () =>
-    exportCanvas({ includeBg: true, includeStickers: true, filename: "design-combined.png" }));
-
-  document.getElementById("exportWhite").addEventListener("click", () =>
-    exportCanvas({ includeBg: true, includeStickers: true, forceWhiteBg: true, filename: "design-stickers-white.png" }));
-
-  document.getElementById("exportBg").addEventListener("click", () =>
-    exportCanvas({ includeBg: true, includeStickers: false, filename: "design-background.png" }));
-
-  document.getElementById("exportAll").addEventListener("click", () => {
-    exportCanvas({ includeBg: true, includeStickers: true, filename: "design-combined.png" });
-    setTimeout(() => exportCanvas({ includeBg: true, includeStickers: true, forceWhiteBg: true, filename: "design-stickers-white.png" }), 300);
-    setTimeout(() => exportCanvas({ includeBg: true, includeStickers: false, filename: "design-background.png" }), 600);
-  });
-
-  document.getElementById("sendBtn").addEventListener("click", () => {
-    const customerEmail = document.getElementById("customerEmail").value.trim();
-    const notes = document.getElementById("notes").value.trim();
-
-    const off = document.createElement("canvas");
-    const PREVIEW = 400;
-    off.width = PREVIEW; off.height = PREVIEW;
-    const o = off.getContext("2d");
-    o.fillStyle = bgColor; o.fillRect(0, 0, PREVIEW, PREVIEW);
-    const scale = PREVIEW / W;
-    for (const s of stickers) {
-      o.save();
-      o.translate((s.x + s.w / 2) * scale, (s.y + s.h / 2) * scale);
-      o.rotate(s.rot);
-      o.drawImage(s.img, -s.w * scale / 2, -s.h * scale / 2, s.w * scale, s.h * scale);
-      o.restore();
-    }
-    const previewDataUrl = off.toDataURL("image/png");
-
-    const payload = {
-      submittedAt: new Date().toISOString(),
-      customerEmail: customerEmail || null,
-      notes: notes || null,
-      bgColor,
-      canvas: { width: W, height: H },
-      stickers: stickers.map((s) => ({
-        x: s.x, y: s.y, w: s.w, h: s.h, rot: s.rot,
-        src: s.img.src,
-      })),
-    };
-
-    const jsonBlob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const dlJson = document.createElement("a");
-    dlJson.href = URL.createObjectURL(jsonBlob);
-    dlJson.download = "design.json";
-    dlJson.click();
-
-    setTimeout(() => {
-      const dlPng = document.createElement("a");
-      dlPng.href = previewDataUrl;
-      dlPng.download = "design-preview.png";
-      dlPng.click();
-    }, 200);
-
-    const yourEmail = "you@example.com";
-    const subject = encodeURIComponent("New sticker pack design");
-    const body = encodeURIComponent(
-      `Hi,\n\nI'd like to have this sticker pack created.\n\n` +
-      `Background color: ${bgColor}\n` +
-      `Number of stickers: ${stickers.length}\n` +
-      `My email: ${customerEmail || "(not provided)"}\n` +
-      `Notes: ${notes || "(none)"}\n\n` +
-      `Attaching design-preview.png and design.json.\n\nThanks!`
-    );
-    window.location.href = `mailto:${yourEmail}?subject=${subject}&body=${body}`;
-  });
-
-  document.getElementById("bgColor").addEventListener("input", (e) => {
-    bgColor = e.target.value;
-    draw();
-  });
-
-  document.getElementById("upload").addEventListener("change", (e) => {
-    const file = e.target.files?.[0];
-    if (file) addImageFromFile(file);
-    e.target.value = "";
-  });
-
-  document.getElementById("duplicateBtn").addEventListener("click", duplicateSelected);
-  document.getElementById("deleteBtn").addEventListener("click", () => {
-    if (!selectedId) return;
-    stickers = stickers.filter((s) => s.id !== selectedId);
-    selectedId = null;
-    draw();
-  });
-  document.getElementById("clearBtn").addEventListener("click", () => {
-    if (stickers.length && !confirm("Remove all stickers?")) return;
-    stickers = [];
-    selectedId = null;
-    draw();
-  });
-
-  addSvgTemplate(TEMPLATES.star);
-  selectedId = null;
-  draw();
-})();
+// Starter sticker
+window.addEventListener('load', () => {
+  setTimeout(() => addLayer(ph('S1')), 50);
+});
 </script>
 </body>
 </html>
