@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Custom Sticker Pack Maker</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f232c;
+    --text: #e6e8ee;
+    --muted: #9aa2b1;
+    --accent: #4f8cff;
+    --border: #2a2f3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+  }
+  aside {
+    width: 300px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 16px;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; letter-spacing: .3px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 8px; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  label.file-btn, button, input[type="file"]::file-selector-button {
+    font: inherit;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover, label.file-btn:hover { background: #262b36; border-color: #3a4150; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+  button.primary:hover { background: #3d7bf0; }
+  button.danger { background: #3a1f24; border-color: #5a2a30; color: #ff9aa3; }
+  button.danger:hover { background: #4a262c; }
+  input[type="color"] {
+    width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel-2); cursor: pointer; padding: 2px;
+  }
+  input[type="text"], input[type="email"] {
+    width: 100%; padding: 9px 12px; border-radius: 8px;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); font: inherit;
+  }
+  .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .templates button {
+    padding: 6px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .templates svg { width: 100%; height: 100%; }
+  .canvas-wrap {
+    background: repeating-conic-gradient(#232733 0% 25%, #1b1f28 0% 50%) 50% / 24px 24px;
+    padding: 16px; border-radius: 12px; border: 1px solid var(--border);
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+  canvas { display: block; border-radius: 6px; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  .hint { color: var(--muted); font-size: 12px; text-align: center; max-width: 600px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<aside>
+  <h1>🎨 Sticker Pack Maker</h1>
+
+  <div class="group">
+    <h2>Background</h2>
+    <input type="color" id="bgColor" value="#fef3c7" />
+  </div>
+
+  <div class="group">
+    <h2>Add stickers</h2>
+    <label class="file-btn" for="upload">⬆ Upload image</label>
+    <input id="upload" type="file" accept="image/*" hidden />
+    <div class="templates" id="templates"></div>
+  </div>
+
+  <hr />
+
+  <div class="group">
+    <h2>Actions</h2>
+    <button id="duplicateBtn">📄 Duplicate selected</button>
+    <button id="deleteBtn" class="danger">🗑 Delete selected</button>
+    <button id="clearBtn" class="danger">✖ Clear canvas</button>
+  </div>
+
+  <hr />
+
+  <div class="group">
+    <h2>Export</h2>
+    <button id="exportCombined">⬇ Combined</button>
+    <button id="exportWhite">⬇ Stickers (white bg)</button>
+    <button id="exportBg">⬇ Background only</button>
+    <button id="exportAll" class="primary">⬇ Export all 3</button>
+  </div>
+
+  <hr />
+
+  <div class="group">
+    <h2>Send to be created</h2>
+    <input id="customerEmail" type="email" placeholder="Your email (optional)" />
+    <input id="notes" type="text" placeholder="Notes (size, quantity…)" />
+    <button id="sendBtn" class="primary">✉ Send design</button>
+    <div class="hint" style="text-align:left">Opens your mail client with the design preview, JSON, and notes attached. Replace the <code>mailto:</code> with a backend when ready.</div>
+  </div>
+</aside>
+
+<main>
+  <div class="canvas-wrap">
+    <canvas id="canvas" width="700" height="700"></canvas>
+  </div>
+  <p class="hint">
+    Drag to move · Click to select · Drag corner handles to resize · Drag top handle to rotate · <b>Delete</b> key removes selection.
+  </p>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Setup ----------
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  /** @typedef {{id:string, img:HTMLImageElement, x:number, y:number, w:number, h:number, rot:number}} Sticker */
+  /** @type {Sticker[]} */
+  let stickers = [];
+  let selectedId = null;
+
+  let bgColor = document.getElementById("bgColor").value;
+
+  // Drag state
+  let mode = null; // 'move' | 'resize' | 'rotate'
+  let dragStart = null;
+
+  const HANDLE_RADIUS = 9;
+  const ROTATE_OFFSET = 40;
+
+  // ---------- Templates (inline SVGs) ----------
+  const TEMPLATES = {
+    star: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 61,38 96,38 68,59 79,92 50,71 21,92 32,59 4,38 39,38" fill="#facc15" stroke="#a16207" stroke-width="3"/></svg>`,
+    heart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,88 C20,68 5,50 5,32 C5,18 16,8 28,8 C37,8 45,13 50,21 C55,13 63,8 72,8 C84,8 95,18 95,32 C95,50 80,68 50,88 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="3"/></svg>`,
+    cat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M25,20 L35,40 L65,40 L75,20 L85,45 C88,60 82,80 50,80 C18,80 12,60 15,45 Z" fill="#f59e0b" stroke="#78350f" stroke-width="3"/><circle cx="38" cy="55" r="4" fill="#111"/><circle cx="62" cy="55" r="4" fill="#111"/><path d="M45,68 Q50,73 55,68" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
+    smiley: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#fde047" stroke="#854d0e" stroke-width="3"/><circle cx="37" cy="42" r="5" fill="#111"/><circle cx="63" cy="42" r="5" fill="#111"/><path d="M32,62 Q50,80 68,62" stroke="#111" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`,
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M25,70 C10,70 5,55 18,47 C18,30 40,25 50,38 C58,25 82,28 82,48 C95,50 95,70 80,70 Z" fill="#bae6fd" stroke="#0369a1" stroke-width="3"/></svg>`,
+    lightning: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="55,5 20,55 45,55 40,95 80,40 55,40" fill="#a855f7" stroke="#4c1d95" stroke-width="3"/></svg>`,
+  };
+
+  const templatesEl = document.getElementById("templates");
+  Object.entries(TEMPLATES).forEach(([name, svg]) => {
+    const btn = document.createElement("button");
+    btn.title = `Add ${name}`;
+    btn.innerHTML = svg;
+    btn.addEventListener("click", () => addSvgTemplate(svg));
+    templatesEl.appendChild(btn);
+  });
+
+  // ---------- Helpers ----------
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  function addSvgTemplate(svg) {
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const size = 150;
+      const s = {
+        id: uid(),
+        img,
+        x: W / 2 - size / 2 + (Math.random() * 60 - 30),
+        y: H / 2 - size / 2 + (Math.random() * 60 - 30),
+        w: size,
+        h: size,
+        rot: 0,
+      };
+      stickers.push(s);
+      selectedId = s.id;
+      draw();
+    };
+    img.src = url;
+  }
+
+  function addImageFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // scale down big images to 200px max side
+        const max = 200;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        const scale = Math.min(1, max / Math.max(w, h));
+        w *= scale; h *= scale;
+        const s = {
+          id: uid(),
+          img,
+          x: W / 2 - w / 2,
+          y: H / 2 - h / 2,
+          w, h, rot: 0,
+        };
+        stickers.push(s);
+        selectedId = s.id;
+        draw();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- Transform helpers ----------
+  function rotPoint(x, y, cx, cy, angle) {
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const dx = x - cx, dy = y - cy;
+    return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
+  }
+
+  function getHandles(s) {
+    const cx = s.x + s.w / 2;
+    const cy = s.y + s.h / 2;
+    const corners = [
+      [s.x, s.y],
+      [s.x + s.w, s.y],
+      [s.x + s.w, s.y + s.h],
+      [s.x, s.y + s.h],
+    ];
+    const rotatedCorners = corners.map(([x, y]) => rotPoint(x, y, cx, cy, s.rot));
+    const rotateHandle = rotPoint(cx, cy - ROTATE_OFFSET - s.h / 2, cx, cy, s.rot);
+    return { rotatedCorners, rotateHandle };
+  }
+
+  function pointInSticker(s, px, py) {
+    const cx = s.x + s.w / 2;
+    const cy = s.y + s.h / 2;
+    // inverse rotate point around center
+    const [lx, ly] = rotPoint(px, py, cx, cy, -s.rot);
+    return lx >= s.x && lx <= s.x + s.w && ly >= s.y && ly <= s.y + s.h;
+  }
+
+  // ---------- Rendering ----------
+  function draw() {
+    // background
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    // subtle border
+    ctx.strokeStyle = "rgba(0,0,0,0.08)";
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+    // stickers
+    for (const s of stickers) {
+      ctx.save();
+      ctx.translate(s.x + s.w / 2, s.y + s.h / 2);
+      ctx.rotate(s.rot);
+      ctx.drawImage(s.img, -s.w / 2, -s.h / 2, s.w, s.h);
+      ctx.restore();
+    }
+
+    // selection UI
+    const sel = stickers.find((s) => s.id === selectedId);
+    if (sel) {
+      const { rotatedCorners, rotateHandle } = getHandles(sel);
+      ctx.save();
+      ctx.strokeStyle = "#4f8cff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(...rotatedCorners[0]);
+      for (let i = 1; i < 4; i++) ctx.lineTo(...rotatedCorners[i]);
+      ctx.closePath();
+      ctx.stroke();
+
+      // corner handles
+      ctx.fillStyle = "#fff";
+      for (const [x, y] of rotatedCorners) {
+        ctx.beginPath();
+        ctx.arc(x, y, HANDLE_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // rotate handle
+      const cx = sel.x + sel.w / 2;
+      const cy = sel.y + sel.h / 2;
+      const topMid = rotPoint(cx, sel.y, cx, cy, sel.rot);
+      ctx.beginPath();
+      ctx.moveTo(...topMid);
+      ctx.lineTo(...rotateHandle);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(...rotateHandle, HANDLE_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "#4f8cff";
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // ---------- Pointer interactions ----------
+  function getPointer(e) {
+    const r = canvas.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * canvas.width;
+    const y = ((e.clientY - r.top) / r.height) * canvas.height;
+    return { x, y };
+  }
+
+  function hitTest(px, py) {
+    // check topmost first
+    for (let i = stickers.length - 1; i >= 0; i--) {
+      const s = stickers[i];
+      const { rotatedCorners, rotateHandle } = getHandles(s);
+      // rotate handle
+      if (Math.hypot(px - rotateHandle[0], py - rotateHandle[1]) <= HANDLE_RADIUS + 4) {
+        return { s, mode: "rotate" };
+      }
+      // corner handles
+      for (const [cx, cy] of rotatedCorners) {
+        if (Math.hypot(px - cx, py - cy) <= HANDLE_RADIUS + 4) {
+          return { s, mode: "resize" };
+        }
+      }
+      // body
+      if (pointInSticker(s, px, py)) {
+        return { s, mode: "move" };
+      }
+    }
+    return null;
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    const p = getPointer(e);
+    const hit = hitTest(p.x, p.y);
+
+    if (!hit) {
+      selectedId = null;
+      draw();
+      return;
+    }
+
+    selectedId = hit.s.id;
+    mode = hit.mode;
+
+    const s = hit.s;
+    const cx = s.x + s.w / 2;
+    const cy = s.y + s.h / 2;
+
+    dragStart = {
+      pointer: p,
+      start: { ...s },
+      center: { x: cx, y: cy },
+      startAngle: Math.atan2(p.y - cy, p.x - cx),
+    };
+
+    // bring to top
+    stickers = stickers.filter((x) => x.id !== s.id);
+    stickers.push(s);
+    draw();
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (!mode || !dragStart) return;
+    const p = getPointer(e);
+    const s = stickers.find((x) => x.id === selectedId);
+    if (!s) return;
+
+    if (mode === "move") {
+      const dx = p.x - dragStart.pointer.x;
+      const dy = p.y - dragStart.pointer.y;
+      s.x = dragStart.start.x + dx;
+      s.y = dragStart.start.y + dy;
+    } else if (mode === "resize") {
+      // Resize in sticker-local space
+      const cx = dragStart.center.x;
+      const cy = dragStart.center.y;
+      const [lx, ly] = rotPoint(p.x, p.y, cx, cy, -s.rot);
+      // relative to original top-left
+      const origX = dragStart.start.x;
+      const origY = dragStart.start.y;
+      const origW = dragStart.start.w;
+      const origH = dragStart.start.h;
+
+      // Which corner is being dragged? Use nearest corner in local space.
+      const corners = [
+        { x: origX, y: origY, dx: 0, dy: 0 },
+        { x: origX + origW, y: origY, dx: 1, dy: 0 },
+        { x: origX + origW, y: origY + origH, dx: 1, dy: 1 },
+        { x: origX, y: origY + origH, dx: 0, dy: 1 },
+      ];
+      let nearest = corners[0];
+      let best = Infinity;
+      for (const c of corners) {
+        const d = (c.x - lx) ** 2 + (c.y - ly) ** 2;
+        if (d < best) { best = d; nearest = c; }
+      }
+
+      const fixedX = nearest.dx === 0 ? origX + origW : origX;
+      const fixedY = nearest.dy === 0 ? origY + origH : origY;
+
+      let newW = Math.abs(lx - fixedX);
+      let newH = Math.abs(ly - fixedY);
+
+      // preserve aspect ratio
+      const aspect = origW / origH;
+      if (newW / newH > aspect) newH = newW / aspect;
+      else newW = newH * aspect;
+
+      newW = Math.max(20, newW);
+      newH = Math.max(20, newH);
+
+      const newX = nearest.dx === 0 ? fixedX - newW : fixedX;
+      const newY = nearest.dy === 0 ? fixedY - newH : fixedY;
+
+      s.x = newX; s.y = newY; s.w = newW; s.h = newH;
+    } else if (mode === "rotate") {
+      const cx = dragStart.center.x;
+      const cy = dragStart.center.y;
+      const angle = Math.atan2(p.y - cy, p.x - cx);
+      s.rot = dragStart.start.rot + (angle - dragStart.startAngle);
+
+      // keep center fixed
+      s.x = cx - s.w / 2;
+      s.y = cy - s.h / 2;
+    }
+    draw();
+  });
+
+  canvas.addEventListener("pointerup", (e) => {
+    mode = null;
+    dragStart = null;
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+  });
+
+  // Delete / duplicate keyboard
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (selectedId && document.activeElement === document.body) {
+        stickers = stickers.filter((s) => s.id !== selectedId);
+        selectedId = null;
+        draw();
+        e.preventDefault();
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+      e.preventDefault();
+      duplicateSelected();
+    }
+  });
+
+  function duplicateSelected() {
+    const s = stickers.find((x) => x.id === selectedId);
+    if (!s) return;
+    const copy = { ...s, id: uid(), x: s.x + 20, y: s.y + 20 };
+    stickers.push(copy);
+    selectedId = copy.id;
+    draw();
+  }
+
+  // ---------- Export ----------
+  function exportCanvas({ includeBg = true, includeStickers = true, forceWhiteBg = false, filename }) {
+    // Create an offscreen canvas to render specific layers
+    const off = document.createElement("canvas");
+    off.width = W; off.height = H;
+    const o = off.getContext("2d");
+
+    if (includeBg) {
+      o.fillStyle = forceWhiteBg ? "#ffffff" : bgColor;
+      o.fillRect(0, 0, W, H);
+    }
+
+    if (includeStickers) {
+      for (const s of stickers) {
+        o.save();
+        o.translate(s.x + s.w / 2, s.y + s.h / 2);
+        o.rotate(s.rot);
+        o.drawImage(s.img, -s.w / 2, -s.h / 2, s.w, s.h);
+        o.restore();
+      }
+    }
+
+    off.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  }
+
+  // Combined (bg + stickers)
+  document.getElementById("exportCombined").addEventListener("click", () => {
+    exportCanvas({ includeBg: true, includeStickers: true, filename: "design-combined.png" });
+  });
+
+  // Stickers on white
+  document.getElementById("exportWhite").addEventListener("click", () => {
+    exportCanvas({ includeBg: true, includeStickers: true, forceWhiteBg: true, filename: "design-stickers-white-bg.png" });
+  });
+
+  // Background only
+  document.getElementById("exportBg").addEventListener("click", () => {
+    exportCanvas({ includeBg: true, includeStickers: false, filename: "design-background.png" });
+  });
+
+  // All three (staggered to avoid browser download blocking)
+  document.getElementById("exportAll").addEventListener("click", () => {
+    exportCanvas({ includeBg: true, includeStickers: true, filename: "design-combined.png" });
+    setTimeout(() => exportCanvas({ includeBg: true, includeStickers: true, forceWhiteBg: true, filename: "design-stickers-white-bg.png" }), 300);
+    setTimeout(() => exportCanvas({ includeBg: true, includeStickers: false, filename: "design-background.png" }), 600);
+  });
+
+  // ---------- Send to be created (mailto fallback) ----------
+  document.getElementById("sendBtn").addEventListener("click", () => {
+    const customerEmail = document.getElementById("customerEmail").value.trim();
+    const notes = document.getElementById("notes").value.trim();
+
+    // Build small preview
+    const off = document.createElement("canvas");
+    const PREVIEW = 400;
+    off.width = PREVIEW; off.height = PREVIEW;
+    const o = off.getContext("2d");
+    o.fillStyle = bgColor; o.fillRect(0, 0, PREVIEW, PREVIEW);
+    const scale = PREVIEW / W;
+    for (const s of stickers) {
+      o.save();
+      o.translate((s.x + s.w / 2) * scale, (s.y + s.h / 2) * scale);
+      o.rotate(s.rot);
+      o.drawImage(s.img, -s.w * scale / 2, -s.h * scale / 2, s.w * scale, s.h * scale);
+      o.restore();
+    }
+    const previewDataUrl = off.toDataURL("image/png");
+
+    // JSON payload (user can save it as a file too)
+    const payload = {
+      submittedAt: new Date().toISOString(),
+      customerEmail: customerEmail || null,
+      notes: notes || null,
+      bgColor,
+      canvas: { width: W, height: H },
+      stickers: stickers.map((s) => ({
+        x: s.x, y: s.y, w: s.w, h: s.h, rot: s.rot,
+        src: s.img.src.slice(0, 64) + "...", // truncated — full src in download
+      })),
+    };
+
+    // Download the full design JSON so it can be attached
+    const jsonBlob = new Blob([JSON.stringify({
+      ...payload,
+      stickers: stickers.map((s) => ({
+        x: s.x, y: s.y, w: s.w, h: s.h, rot: s.rot,
+        src: s.img.src, // full data URL
+      })),
+    }, null, 2)], { type: "application/json" });
+
+    // Auto-download design.json + preview.png so user can attach them
+    const dlJson = document.createElement("a");
+    dlJson.href = URL.createObjectURL(jsonBlob);
+    dlJson.download = "design.json";
+    dlJson.click();
+
+    setTimeout(() => {
+      const dlPng = document.createElement("a");
+      dlPng.href = previewDataUrl;
+      dlPng.download = "design-preview.png";
+      dlPng.click();
+    }, 200);
+
+    // Open mail client
+    const subject = encodeURIComponent("New sticker pack design");
+    const body = encodeURIComponent(
+      `Hi,\n\nI'd like to have this sticker pack created.\n\n` +
+      `Background color: ${bgColor}\n` +
+      `Number of stickers: ${stickers.length}\n` +
+      `My email: ${customerEmail || "(not provided)"}\n` +
+      `Notes: ${notes || "(none)"}\n\n` +
+      `I'm attaching design-preview.png and design.json (downloaded automatically).\n\n` +
+      `Thanks!`
+    );
+    // 👇 Replace with your email
+    const yourEmail = "you@example.com";
+    window.location.href = `mailto:${yourEmail}?subject=${subject}&body=${body}`;
+  });
+
+  // ---------- Sidebar controls ----------
+  document.getElementById("bgColor").addEventListener("input", (e) => {
+    bgColor = e.target.value;
+    draw();
+  });
+
+  document.getElementById("upload").addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (file) addImageFromFile(file);
+    e.target.value = "";
+  });
+
+  document.getElementById("duplicateBtn").addEventListener("click", duplicateSelected);
+  document.getElementById("deleteBtn").addEventListener("click", () => {
+    if (!selectedId) return;
+    stickers = stickers.filter((s) => s.id !== selectedId);
+    selectedId = null;
+    draw();
+  });
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    if (stickers.length && !confirm("Remove all stickers?")) return;
+    stickers = [];
+    selectedId = null;
+    draw();
+  });
+
+  // ---------- Boot ----------
+  // Add a starter sticker so canvas isn't empty
+  addSvgTemplate(TEMPLATES.star);
+  selectedId = null;
+  draw();
+})();
+</script>
+</body>
+</html>
